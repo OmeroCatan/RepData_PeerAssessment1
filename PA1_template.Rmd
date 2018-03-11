@@ -1,25 +1,97 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Peer Graded Assignment 1"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-## Loading and preprocessing the data
+## Load Applicaions
 
+```{r}
+  library(dplyr)
+  library(ggplot2)
+```
 
+## Loading and Preprocessing the Data
 
-## What is mean total number of steps taken per day?
+```{r}
+dat <- read.csv("./activity.csv", sep = ",", header = TRUE)
+dat$date <- as.Date(dat$date)
+```
 
+## Mean Total Number of Steps Taken Per Day
 
+I calculated the sum of all the steps taken and then created a histogram showing the total steps taken by day. The average and mediam were also calculated.
 
-## What is the average daily activity pattern?
+```{r}
+total_steps <- summarise(group_by(filter(dat,!is.na(steps)), date),
+ steps = sum(steps,na.rm = TRUE))
 
+hist(total_steps$steps, breaks = 20, xlab = "Steps", main = "Total Steps/Day")
 
+average_steps <- mean(total_steps$steps, na.rm = TRUE)
+median_of_steps <- median(total_steps$steps, na.rm = TRUE)
 
-## Imputing missing values
+average_steps
+median_of_steps
 
+```
 
+## Average Daily Activity Pattern
 
-## Are there differences in activity patterns between weekdays and weekends?
+Similarly to the previous question, I used the summarise function under the dplyr package. I calculated the averge daily activity pattern and then used ggplot2 to create the time series plot.
+
+```{r}
+pattern <- summarise(group_by(filter(dat,!is.na(steps)), interval), 
+                     steps = mean(steps, na.rm = TRUE))
+
+ggplot(pattern, aes(x=interval, y=steps), xlab = "Interval", ylab="Steps") +
+                    geom_line() + xlab("Interval") + ylab("Steps") +
+                    ggtitle("Average Number of Steps")
+
+maximum_steps <- max(pattern$steps)
+interval <- pattern[pattern$steps==max(pattern$steps),1]
+
+maximum_steps
+interval
+```
+
+## Inputting Missing Values
+
+I calculated the amount of missing values. Then I created a separate data set for the missing values. I filled the missing values with the avearage value to that interval and merges the two data sets to calculate the new average and median.
+
+```{r}
+new_dat <- dat
+sum(is.na(new_dat$steps))
+empty_dat  <- is.na(dat$steps)
+
+avg_steps_per_int <- tapply(new_dat$steps, new_dat$interval, mean, na.rm = TRUE)
+
+new_dat$steps[empty_dat] <- avg_steps_per_int[as.character(new_dat$interval[empty_dat])]
+
+total_steps1 <- summarise(group_by(new_dat, date), steps = sum(steps))
+
+hist(total_steps1$steps, breaks = 20, xlab = "Steps", main = "Total Steps/Day")
+
+avg_steps <- mean(total_steps1$steps)
+median_steps <- median(total_steps1$steps)
+
+avg_steps
+median_steps
+```
+
+## Comparing Weekdays to Weekends
+
+I went back to the original data set including the missing values to compare weekedays to weekends. I used mutate and summarise functions to perform the calculations. I then used the ggplot package to visualize the findings.
+
+```{r}
+new_dat1 <- mutate(dat, Weektype = ifelse(weekdays(dat$date) == "Saturday"| weekdays(dat$date) == "Sunday", "Weekend", "Weekday"))
+
+pattern1 <- summarise(group_by(filter(new_dat1,!is.na(steps)), interval, Weektype), steps = mean(steps, na.rm = TRUE))
+
+ggplot(pattern1, aes(x = interval , y = steps, color = Weektype)) + 
+       geom_line() +
+       facet_wrap(~ Weektype, ncol = 1, nrow=2)
+```
